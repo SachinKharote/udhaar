@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Udhaar Manager</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #f8f9fa;
+  color: #2c3e50;
+}
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #2c3e50;
+  padding: 12px 20px;
+  color: white;
+}
+.navbar .logo { font-size: 20px; font-weight: bold; }
+.navbar .nav-links { list-style: none; display: flex; gap: 15px; margin: 0; padding: 0; }
+.navbar .nav-links li a { text-decoration: none; color: white; padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: 0.3s; }
+.navbar .nav-links li a:hover, .navbar .nav-links li a.active { background: #1abc9c; }
+.container { padding: 20px; max-width: 900px; margin: auto; }
+h1,h2 { color: #2c3e50; }
+form { margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
+form input, form button { padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
+form button { background: #1abc9c; color: white; border: none; cursor: pointer; }
+form button:hover { background: #16a085; }
+ul { list-style: none; padding: 0; }
+ul li { background: white; margin: 6px 0; padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+button { padding: 6px 10px; border: none; border-radius: 6px; cursor: pointer; }
+button.danger { background: #e74c3c; color: white; }
+button.success { background: #2ecc71; color: white; }
+section { display: none; }
+section.active { display: block; }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="logo">Udhaar Manager</div>
+  <ul class="nav-links">
+    <li><a onclick="showSection('dashboard')" class="active">Dashboard</a></li>
+    <li><a onclick="showSection('customers')">Customers</a></li>
+    <li><a onclick="showSection('inventory')">Inventory</a></li>
+    <li><a onclick="showSection('reminders')">Reminders</a></li>
+    <li><a onclick="showSection('cleared')">Cleared Debts</a></li>
+  </ul>
+</nav>
+
+<div class="container">
+  <!-- Dashboard -->
+  <section id="dashboard" class="active">
+    <h1>Dashboard</h1>
+    <p><b>Total Customers:</b> <span id="totalCustomers">0</span></p>
+    <p><b>Total Dues:</b> ₹<span id="totalDues">0</span></p>
+    <p><b>Total Inventory Items:</b> <span id="totalStock">0</span></p>
+  </section>
+
+  <!-- Customers -->
+  <section id="customers">
+    <h1>Customer Credit Tracker</h1>
+    <form id="customerForm">
+      <input type="text" id="name" placeholder="Customer Name" required>
+      <input type="number" id="amount" placeholder="Credit Amount" required>
+      <button type="submit">Add Customer</button>
+    </form>
+    <h2>Pending Dues</h2>
+    <ul id="customerList"></ul>
+  </section>
+
+  <!-- Inventory -->
+  <section id="inventory">
+    <h1>Inventory Manager</h1>
+    <form id="stockForm">
+      <input type="text" id="item" placeholder="Item Name" required>
+      <input type="number" id="qty" placeholder="Quantity" required>
+      <input type="date" id="expiry" required>
+      <button type="submit">Add Stock</button>
+    </form>
+    <h2>Stock List</h2>
+    <ul id="stockList"></ul>
+  </section>
+
+  <!-- Reminders -->
+  <section id="reminders">
+    <h1>Auto-Reminder System</h1>
+    <p>This simulates pending reminders for customers with dues.</p>
+    <h2>Pending Reminders</h2>
+    <ul id="reminderList"></ul>
+  </section>
+
+  <!-- Cleared Debts -->
+  <section id="cleared">
+    <h1>Cleared Debts</h1>
+    <ul id="clearedList"></ul>
+  </section>
+</div>
+
+<script>
+// Navigation
+function showSection(id) {
+  document.querySelectorAll('section').forEach(sec => sec.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// LocalStorage data
+let customers = JSON.parse(localStorage.getItem('customers')) || [];
+let inventory = JSON.parse(localStorage.getItem('inventory')) || [];
+let clearedCustomers = JSON.parse(localStorage.getItem('clearedCustomers')) || [];
+
+// Dashboard
+function updateDashboard() {
+  document.getElementById("totalCustomers").innerText = customers.length;
+  document.getElementById("totalDues").innerText = customers.reduce((sum,c)=>sum+c.amount,0).toFixed(2);
+  document.getElementById("totalStock").innerText = inventory.length;
+}
+
+// Customers
+const customerForm = document.getElementById('customerForm');
+const customerList = document.getElementById('customerList');
+
+function renderCustomers() {
+  customerList.innerHTML = "";
+  customers.forEach((c,i)=>{
+    let li = document.createElement("li");
+    li.innerHTML = `${c.name} - ₹${c.amount.toFixed(2)} <button class="success" onclick="markPaid(${i})">Mark Paid</button>`;
+    customerList.appendChild(li);
+  });
+}
+
+function markPaid(i){
+  // Move customer to cleared
+  clearedCustomers.push(customers[i]);
+  localStorage.setItem("clearedCustomers", JSON.stringify(clearedCustomers));
+
+  // Remove from pending
+  customers.splice(i,1);
+  localStorage.setItem("customers", JSON.stringify(customers));
+
+  renderCustomers();
+  updateDashboard();
+  renderReminders();
+  renderCleared();
+}
+
+customerForm.addEventListener("submit", e=>{
+  e.preventDefault();
+  let name = document.getElementById("name").value;
+  let amount = parseFloat(document.getElementById("amount").value);
+  customers.push({name, amount});
+  localStorage.setItem("customers", JSON.stringify(customers));
+  customerForm.reset();
+  renderCustomers(); updateDashboard(); renderReminders();
+});
+
+// Inventory
+const stockForm = document.getElementById('stockForm');
+const stockList = document.getElementById('stockList');
+
+function renderStock(){
+  stockList.innerHTML="";
+  inventory.forEach((s,i)=>{
+    let expired = new Date(s.expiry) < new Date() ? "⚠️ Expired" : "";
+    let li = document.createElement("li");
+    li.innerHTML = `${s.item} - Qty: ${s.qty} - Exp: ${s.expiry} ${expired} <button class="danger" onclick="removeStock(${i})">Remove</button>`;
+    stockList.appendChild(li);
+  });
+}
+
+function removeStock(i){
+  inventory.splice(i,1);
+  localStorage.setItem("inventory", JSON.stringify(inventory));
+  renderStock(); updateDashboard();
+}
+
+stockForm.addEventListener("submit", e=>{
+  e.preventDefault();
+  let item = document.getElementById("item").value;
+  let qty = parseInt(document.getElementById("qty").value);
+  let expiry = document.getElementById("expiry").value;
+  inventory.push({item, qty, expiry});
+  localStorage.setItem("inventory", JSON.stringify(inventory));
+  stockForm.reset();
+  renderStock(); updateDashboard();
+});
+
+// Reminders
+const reminderList = document.getElementById("reminderList");
+function renderReminders(){
+  reminderList.innerHTML="";
+  if(customers.length==0){
+    reminderList.innerHTML="<li>No pending reminders 🎉</li>"; return;
+  }
+  customers.forEach(c=>{
+    let li = document.createElement("li");
+    li.innerText=`Reminder: ${c.name} owes ₹${c.amount.toFixed(2)}.`;
+    reminderList.appendChild(li);
+  });
+}
+
+// Cleared Debts
+const clearedList = document.getElementById("clearedList");
+function renderCleared(){
+  clearedList.innerHTML="";
+  if(clearedCustomers.length === 0){
+    clearedList.innerHTML = "<li>No customers have cleared debts yet.</li>";
+    return;
+  }
+  clearedCustomers.forEach(c => {
+    let li = document.createElement("li");
+    li.innerText = `${c.name} - ₹${c.amount.toFixed(2)}`;
+    clearedList.appendChild(li);
+  });
+}
+
+// Initial render
+renderCustomers();
+renderStock();
+renderReminders();
+renderCleared();
+updateDashboard();
+</script>
+</body>
+</html>
